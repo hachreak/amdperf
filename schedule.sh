@@ -29,7 +29,12 @@ echo_profile(){
 
 controller(){
   Hour=$1
-  DO_PROFILE=$2
+  DayOfWeek=$2
+  DO_PROFILE=$3
+
+  if [ $DayOfWeek = "Sat" ] || [ $DayOfWeek = "San" ]; then
+    IS_F1=y
+  fi
 
   # night mode
   if [ $Hour -le 2 ] || [ $Hour -gt 23 ]; then
@@ -38,27 +43,34 @@ controller(){
   fi
 
   # full power evening
-  if [ $Hour -ge 20 ] && [ $Hour -le 23 ]; then
-    echo "Full power evening"
+  if [ "$IS_F1" = "y" ]; then
+    echo "Full power weekend"
     set_profile $DO_PROFILE full
-  fi
-  if [ $Hour -ge 3 ] && [ $Hour -le 8 ]; then
-    echo "Full power evening"
-    set_profile $DO_PROFILE full
-  fi
+  else
+    if [ $Hour -ge 20 ] && [ $Hour -le 23 ]; then
+      echo "Full power evening"
+      set_profile $DO_PROFILE full
+    fi
+    if [ $Hour -ge 3 ] && [ $Hour -lt 8 ]; then
+      echo "Full power evening"
+      set_profile $DO_PROFILE full
+    fi
 
-  # low speed
-  if [ $Hour -ge 9 ] && [ $Hour -le 19 ]; then
-    echo "Low power day"
-    set_profile $DO_PROFILE low
+    # low speed
+    if [ $Hour -ge 8 ] && [ $Hour -le 19 ]; then
+      echo "Low power day"
+      set_profile $DO_PROFILE low
+    fi
   fi
 
 }
 
 check_calendar(){
-  for Hour in `seq 0 24`; do	
-    echo "hour $Hour"
-    controller $Hour echo_profile
+  DayOfWeek=`date +%a`
+  DayOfWeek="Sat"
+  for Hour in `seq 0 24`; do
+    echo "[[ hour $Hour  ]]"
+    controller $Hour $DayOfWeek echo_profile
     echo ""
   done
 }
@@ -73,21 +85,21 @@ check_temp(){
 }
 
 schedule_settings(){
-  SLEEP_TIME=3600
+  SLEEP_TIME=1800
   INDEX=1
   while true; do
     # Apply profile
     if [ $INDEX -le 1 ]; then
-      Hour=`date +%H`
-      echo "hour $Hour"
+      Hour=`get_date`
       controller $Hour echo_profile
+      Hour=`get_date`
       controller $Hour do_profile
     fi
-    
+
     # Check temp every seconds
     check_temp
     echo ""
-    
+
     # loop
     sleep 1
     if [ $INDEX -gt $SLEEP_TIME ]; then
@@ -98,11 +110,15 @@ schedule_settings(){
   done
 }
 
+get_date(){
+  date +"%H %a"
+}
+
 ###### Menu
 
 # check which profile would activated now
 if [ "$1" = "check" ]; then
-  Hour=`date +%H`
+  Hour=`get_date`
   controller $Hour echo_profile
   exit 0
 fi
@@ -114,13 +130,13 @@ if [ "$1" = "calendar" ]; then
 fi
 
 # schedule profile
-if [ "$1" = "schedule" ]; then 
+if [ "$1" = "schedule" ]; then
   schedule_settings
   exit 0
 fi
 
 # set a profile
-if [ "$1" = "profile" ]; then 
+if [ "$1" = "profile" ]; then
   set_profile echo_profile $2
   set_profile do_profile $2
   exit 0
